@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  build-intel:
+  build-x64:
     runs-on: windows-2019
     steps:
       - name: Checkout
