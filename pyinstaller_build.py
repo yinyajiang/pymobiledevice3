@@ -25,9 +25,9 @@ if args.venv:
         if not os.path.exists(env_name):
             # if wndows
             if iswin:
-                os.system("python -m venv .venv")
+                os.system(f"python -m venv {env_name}")
             else:
-                os.system("python3 -m venv .venv")
+                os.system(f"python3 -m venv {env_name}")
         if iswin:
             python_executable = os.path.join(env_name, 'Scripts', 'python.exe')
         else:
