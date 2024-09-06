@@ -41,9 +41,11 @@ if args.venv:
 if iswin:
     os.system("pip install -r requirements.txt")
     os.system("pip install pyinstaller")
+    os.system("pip install apple-compress")
 else:
     os.system("pip3 install -r requirements.txt")
     os.system("pip3 install pyinstaller")
+    os.system("pip3 install apple-compress")
 
 import PyInstaller.__main__
 
