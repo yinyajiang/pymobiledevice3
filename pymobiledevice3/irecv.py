@@ -7,8 +7,8 @@ from enum import Enum
 from typing import Optional
 
 from tqdm import trange
-from usb.core import Device, USBError, find
-from usb.util import get_string
+
+from pymobiledevice3.usb_compat import get_string, Device, USBError, find
 
 from pymobiledevice3.exceptions import IRecvNoDeviceConnectedError, PyMobileDevice3Exception
 from pymobiledevice3.irecv_devices import IRECV_DEVICES, IRecvDevice

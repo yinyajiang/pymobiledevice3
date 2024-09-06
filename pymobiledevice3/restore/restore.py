@@ -28,6 +28,8 @@ from pymobiledevice3.restore.restored_client import RestoredClient
 from pymobiledevice3.restore.tss import TSSRequest, TSSResponse
 from pymobiledevice3.service_connection import ServiceConnection
 from pymobiledevice3.utils import plist_access_path
+import time
+
 
 known_errors = {
     0xFFFFFFFFFFFFFFFF: 'verification error',
@@ -249,19 +251,30 @@ class Restore(BaseRestore):
 
         self.logger.info(f'Sending {component_name} now...')
         chunk_size = 8192
-        for i in trange(0, len(data), chunk_size):
-            chunk = data[i:i + chunk_size]
-            await service.aio_send_plist({'FileData': chunk})
-            if i == 0 and chunk.startswith(b'AEA1'):
-                self.logger.debug('First chunk in a AEA')
-                try:
-                    message = await asyncio.wait_for(service.aio_recv_plist(), timeout=3)
-                    await self.send_url_asset(message)
-                except asyncio.exceptions.TimeoutError:
-                    self.logger.debug('No URLAsset was requested. Assuming it is not necessary')
+
+        with trange(0, len(data), chunk_size) as pbar:
+            last_output_time = time.time()
+            for i in pbar:
+                chunk = data[i:i + chunk_size]
+                await service.aio_send_plist({'FileData': chunk})
+                
+                currentTime = time.time()
+                if i == 0 or (currentTime - last_output_time >= 1.0):
+                    print(f'\n!upload=>{component_name} : progress=>{100 if pbar.n >= pbar.total else (pbar.n * 100 / pbar.total)} : time=>{currentTime}!\n')
+                    last_output_time = currentTime
+
+                if i == 0 and chunk.startswith(b'AEA1'):
+                    self.logger.debug('First chunk in a AEA')
+                    try:
+                        message = await asyncio.wait_for(service.aio_recv_plist(), timeout=3)
+                        await self.send_url_asset(message)
+                    except asyncio.exceptions.TimeoutError:
+                        self.logger.debug('No URLAsset was requested. Assuming it is not necessary')
 
         # Send FileDataDone
         await service.aio_send_plist({'FileDataDone': True})
+
+        print(f'\n!upload=>{component_name} : progress=>{100} : time=>{time.time()}!\n')
 
         self.logger.info(f'Done sending {component_name}')
 
@@ -1201,6 +1214,10 @@ class Restore(BaseRestore):
         if operation in PROGRESS_BAR_OPERATIONS:
             message['Operation'] = PROGRESS_BAR_OPERATIONS[operation]
 
+        progress = message['Progress'] if 'Progress' in message else None
+        if progress:
+            print(f'\n!operation-progress=>{operation} : progress=>{progress} : time=>{time.time()}!\n')
+       
         if message['Operation'] == 'VERIFY_RESTORE':
             progress = message['Progress']
 
@@ -1214,10 +1231,10 @@ class Restore(BaseRestore):
             if progress == 100:
                 self._pb_verify_restore.close()
                 self._pb_verify_restore = None
-
             return
 
         self.logger.debug(f'progress-bar: {message}')
+
 
     async def handle_status_msg(self, message: Mapping):
         self.logger.debug(f'status message: {message}')
@@ -1231,6 +1248,8 @@ class Restore(BaseRestore):
         if status == 0:
             self._restore_finished = True
             await self._restored.send({'MsgType': 'ReceivedFinalStatusMsg'})
+            print(f'\n!success : time=>{time.time()}!\n')
+            os._exit(0)
         else:
             if status in known_errors:
                 self.logger.error(known_errors[status])
