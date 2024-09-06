@@ -30,6 +30,7 @@ jobs:
         run: |
           python -m venv venv
           venv\Scripts\Activate.ps1
+          pip install pywin32
           python pyinstaller_build.py --name ${{ inputs.name }}
 
       - name: Upload artifacts
