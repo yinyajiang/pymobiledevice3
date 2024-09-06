@@ -1,0 +1,42 @@
+name: Build Windows
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 名字
+        required: false
+        default: 'mobiledevice'
+        type: string
+
+
+permissions:
+  contents: read
+
+jobs:
+  build-intel:
+    runs-on: windows-2019
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: flash-simple
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+    
+      - name: Build
+        run: |
+          python3 pyinstaller_build.py --name ${{ inputs.name }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: build-latest
+          path: | 
+            dist/*
+          compression-level: 0
+
+
+
