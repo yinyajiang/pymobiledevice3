@@ -7,7 +7,7 @@ upx_dir = ''
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 iswin = sys.platform.startswith('win')
-print(f'sys.prefix: {sys.prefix}')
+print(f'\nsys.prefix: {sys.prefix}\n\n')
 
 
 parser = argparse.ArgumentParser(description='Command Line Parser')
@@ -58,12 +58,9 @@ pyinstaller_args = [
     "--copy-metadata=pyimg4",
     "--copy-metadata=readchar",
     "--copy-metadata=apple_compress",
-    "--add-binary",
-    f"{site_packages_path}/pytun_pmd3;pytun_pmd3",
-    "--name",
-    args.name,
-    "--add-data",
-    f"{resources_dir}/webinspector:pymobiledevice3/resources/webinspector",
+    f"--add-binary={site_packages_path}/pytun_pmd3:pytun_pmd3",
+    f"--add-data={resources_dir}/webinspector:pymobiledevice3/resources/webinspector",
+    f"--name={args.name}",
 ] + (["--onedir"] if args.onedir else ["--onefile"]) + (["--upx-dir", upx_dir] if upx_dir else [])
 
 pyinstaller_args.extend(hidden_imports)
