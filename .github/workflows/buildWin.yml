@@ -28,7 +28,7 @@ jobs:
     
       - name: Build
         run: |
-          python3 pyinstaller_build.py --name ${{ inputs.name }}
+          python3 pyinstaller_build.py --name ${{ inputs.name }} --venv
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.1
