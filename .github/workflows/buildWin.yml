@@ -36,7 +36,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.1
         with:
-          name: build-latest
+          name: build-win64-latest
           path: | 
             dist/*
           compression-level: 0
