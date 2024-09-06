@@ -1,41 +1,19 @@
 import os
 import site
 import sys
-import subprocess
 import argparse
 
-exe_name = "mobiledevice3"
 upx_dir = ''
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 iswin = sys.platform.startswith('win')
+print(f'sys.prefix: {sys.prefix}')
 
 
 parser = argparse.ArgumentParser(description='Command Line Parser')
 parser.add_argument('--onedir', action='store_true')
 parser.add_argument('--name', default='mobiledevice')
-parser.add_argument('--venv', action='store_true')
 args = parser.parse_args()
-
-# run in virtual environment
-if args.venv:
-    env_name = "venv"
-    if not sys.prefix.endswith(env_name):
-        print("switch to virtual environment")
-        if not os.path.exists(env_name):
-            # if wndows
-            if iswin:
-                os.system(f"python -m venv {env_name}")
-            else:
-                os.system(f"python3 -m venv {env_name}")
-        if iswin:
-            python_executable = os.path.join(env_name, 'Scripts', 'python.exe')
-        else:
-            python_executable = os.path.join(env_name, 'bin', 'python')
-        print(f"run: {python_executable} {sys.argv}")
-        subprocess.run([python_executable, *sys.argv])
-        sys.exit(0)
-
 
 # install required packages
 if iswin:
