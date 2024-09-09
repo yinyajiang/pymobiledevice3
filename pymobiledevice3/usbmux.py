@@ -2,6 +2,7 @@ import abc
 import plistlib
 import socket
 import time
+import logging
 from dataclasses import dataclass
 from typing import List, Mapping, Optional
 
@@ -11,6 +12,8 @@ from construct import Const, CString, Enum, FixedSized, GreedyBytes, Int16ul, In
 from pymobiledevice3.exceptions import BadCommandError, BadDevError, ConnectionFailedError, \
     ConnectionFailedToUsbmuxdError, MuxException, MuxVersionError, NotPairedError
 from pymobiledevice3.osu.os_utils import get_os_utils
+
+logger = logging.getLogger(__name__)
 
 usbmuxd_version = Enum(Int32ul,
                        BINARY=0,
@@ -164,6 +167,7 @@ class MuxConnection:
                     family = socket.AF_UNIX
             else:
                 address, family = get_os_utils().usbmux_address
+            logger.debug(f'creating usbmuxd socket with address: {address}, family: {family}')
             return SafeStreamSocket(address, family)
         except ConnectionRefusedError:
             raise ConnectionFailedToUsbmuxdError()
