@@ -167,7 +167,6 @@ class MuxConnection:
                     family = socket.AF_UNIX
             else:
                 address, family = get_os_utils().usbmux_address
-            logger.debug(f'creating usbmuxd socket with address: {address}, family: {family}')
             return SafeStreamSocket(address, family)
         except ConnectionRefusedError:
             raise ConnectionFailedToUsbmuxdError()
