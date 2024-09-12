@@ -58,6 +58,11 @@ class FDRClient:
 
         logger.debug('FDR connected')
 
+    def close(self):
+        if self.service:
+            self.service.close()
+            self.service = None
+
     def recv_plist(self):
         return self.service.recv_plist(endianity='<')
 
@@ -166,7 +171,6 @@ class FDRClient:
                 break
 
         sockfd.close()
-        self.service.close()
 
     def handle_plist_cmd(self):
         d = self.recv_plist()
@@ -205,6 +209,8 @@ def fdr_listener_thread(type_: fdr_type):
     except ConnectionAbortedError:
         pass
 
+    if client:
+        client.close()
     logger.debug(f'FDR {client} terminating...')
 
 

@@ -64,5 +64,6 @@ def usbmux_list(usbmux_address: str, usb: bool, network: bool) -> None:
         lockdown = create_using_usbmux(udid, autopair=False, connection_type=device.connection_type,
                                        usbmux_address=usbmux_address)
         connected_devices.append(lockdown.short_info)
+        lockdown.close()
 
     print_json(connected_devices)

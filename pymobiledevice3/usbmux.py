@@ -2,6 +2,7 @@ import abc
 import plistlib
 import socket
 import time
+import logging
 from dataclasses import dataclass
 from typing import List, Mapping, Optional
 
@@ -12,6 +13,8 @@ from pymobiledevice3.exceptions import BadCommandError, BadDevError, ConnectionF
     ConnectionFailedToUsbmuxdError, MuxException, MuxVersionError, NotPairedError
 from pymobiledevice3.osu.os_utils import get_os_utils
 
+
+loger = logging.getLogger(__name__)
 
 usbmuxd_version = Enum(Int32ul,
                        BINARY=0,
@@ -110,16 +113,17 @@ class SafeStreamSocket:
         self._offset = 0
         # Multiple connections within a short period of time in windows
         # may throw the exception "OSError: [WinError 10048]".
-        max_retries = 15
+        max_retries = 200
         for attempt in range(max_retries):
+            if attempt > 0:
+                loger.debug(f'Connecting to {address} attempt {attempt} of {max_retries}')
             try:
                 self.sock = socket.socket(family, socket.SOCK_STREAM)
-                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 self.sock.connect(address)
                 break
             except OSError as e:
                 if attempt < max_retries - 1:
-                    time.sleep(2)
+                    time.sleep(0.5)
                 else:
                     raise e
 

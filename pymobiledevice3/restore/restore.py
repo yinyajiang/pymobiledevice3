@@ -189,6 +189,7 @@ class Restore(BaseRestore):
         req['Variant'] = variant
         self.logger.info('Sending BuildIdentityDict now...')
         await service.aio_send_plist(req)
+        await self._close_service_not_restored(service)
 
     async def extract_global_manifest(self) -> Mapping:
         build_info = self.build_identity.get('Info')
@@ -229,7 +230,7 @@ class Restore(BaseRestore):
 
         # Send FileDataDone
         await service.aio_send_plist({'FileDataDone': True})
-
+        await self._close_service_not_restored(service)
         self.logger.info(f'Done sending {component_name}')
 
     async def send_source_boot_object_v4(self, message: Mapping) -> None:
@@ -273,7 +274,7 @@ class Restore(BaseRestore):
 
         # Send FileDataDone
         await service.aio_send_plist({'FileDataDone': True})
-
+        await self._close_service_not_restored(service)
         print(f'\n!upload=>{component_name} : progress=>{100} : time=>{time.time()}!\n')
 
         self.logger.info(f'Done sending {component_name}')
@@ -338,6 +339,7 @@ class Restore(BaseRestore):
 
         await service.aio_send_plist({'Ap,LocalPolicy': build_identity.get_component(component, tss=tss_localpolicy,
                                                                                      data=lpol_file).personalized_data})
+        await self._close_service_not_restored(service)
 
     async def send_recovery_os_root_ticket(self, message: Mapping) -> None:
         self.logger.info('About to send RecoveryOSRootTicket...')
@@ -359,6 +361,7 @@ class Restore(BaseRestore):
 
         self.logger.info('Sending RecoveryOSRootTicket now...')
         await service.aio_send_plist(req)
+        await self._close_service_not_restored(service)
 
     async def send_root_ticket(self, message: Mapping) -> None:
         self.logger.info('About to send RootTicket...')
@@ -369,6 +372,7 @@ class Restore(BaseRestore):
 
         self.logger.info('Sending RootTicket now...')
         await service.aio_send_plist({'RootTicketData': self.recovery.tss.ap_img4_ticket})
+        await self._close_service_not_restored(service)
 
     async def send_nor(self, message: Mapping):
         self.logger.info('About to send NORData...')
@@ -450,6 +454,7 @@ class Restore(BaseRestore):
 
         self.logger.info('Sending NORData now...')
         await service.aio_send_plist(req)
+        await self._close_service_not_restored(service)
 
     @staticmethod
     def get_bbfw_fn_for_element(elem):
@@ -622,6 +627,7 @@ class Restore(BaseRestore):
 
         self.logger.info('Sending BasebandData now...')
         await service.aio_send_plist({'BasebandData': buffer})
+        await self._close_service_not_restored(service)
 
     async def send_fdr_trust_data(self, message: Mapping) -> None:
         self.logger.info('About to send FDR Trust data...')
@@ -632,6 +638,7 @@ class Restore(BaseRestore):
         # and this is what iTunes seems to be doing too
         self.logger.info('Sending FDR Trust data now...')
         await service.aio_send_plist({})
+        await self._close_service_not_restored(service)
 
     async def send_image_data(
             self, message: Mapping, image_list_k: Optional[str], image_type_k: Optional[str],
@@ -699,7 +706,7 @@ class Restore(BaseRestore):
         self.logger.debug(f'send_bootability_bundle_data: {message}')
         service = await self._get_service_for_data_request(message)
         await service.aio_sendall(self.ipsw.bootability)
-        await service.aio_close()
+        await self._close_service_not_restored(service)
 
     async def send_manifest(self) -> None:
         self.logger.debug('send_manifest')
@@ -1117,11 +1124,13 @@ class Restore(BaseRestore):
 
         self.logger.info('Sending FirmwareResponse data now...')
         await service.aio_send_plist({'FirmwareResponseData': fwdict})
+        await self._close_service_not_restored(service)
 
     async def send_firmware_updater_preflight(self, message: Mapping) -> None:
         self.logger.warning(f'send_firmware_updater_preflight: {message}')
         service = await self._get_service_for_data_request(message)
         await service.aio_send_plist({})
+        await self._close_service_not_restored(service)
 
     async def send_url_asset(self, message: Mapping) -> None:
         self.logger.info(f'send_url_asset: {message}')
@@ -1144,7 +1153,7 @@ class Restore(BaseRestore):
             'ResponseHeaders': dict(response.headers),
             'ResponseStatus': response.status_code,
         }, fmt=plistlib.FMT_BINARY)
-        await service.aio_close()
+        await self._close_service_not_restored(service)
 
     async def send_streamed_image_decryption_key(self, message: Mapping) -> None:
         self.logger.info(f'send_streamed_image_decryption_key: {message}')
@@ -1163,6 +1172,7 @@ class Restore(BaseRestore):
             'ResponseHeaders': dict(response.headers),
             'ResponseStatus': response.status_code,
         })
+        await self._close_service_not_restored(service)
 
     async def send_component(self, component: str, component_name: Optional[str] = None) -> None:
         if component_name is None:
@@ -1308,6 +1318,8 @@ class Restore(BaseRestore):
         await self._restored.send({'RestoreShouldAttest': False})
 
     async def _connect_to_restored_service(self):
+        if self._restored:
+            self._restored.close()
         self._restored = RestoredClient()
         while True:
             try:
@@ -1330,6 +1342,8 @@ class Restore(BaseRestore):
 
         if self._ignore_fdr:
             self.logger.info('Establishing a mock FDR listener')
+            if self._fdr:
+                self._fdr.close()
             self._fdr = ServiceConnection.create_using_usbmux(
                 self._restored.udid, FDRClient.SERVICE_PORT, connection_type='USB'
             )
@@ -1395,3 +1409,7 @@ class Restore(BaseRestore):
         self.logger.info(f'Connected to {data_type} data port ({data_port})')
         await service.aio_start()
         return service
+    
+    async def _close_service_not_restored(self, service: ServiceConnection):
+        if service and service != self._restored.service:
+            await service.aio_close()

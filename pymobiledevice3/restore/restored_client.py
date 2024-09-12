@@ -30,6 +30,11 @@ class RestoredClient:
 
         assert self.query_type.get('Type') == 'com.apple.mobile.restored', f'wrong query type: {self.query_type}'
 
+    def close(self) -> None:
+        if self.service:
+            self.service.close()
+            self.service = None
+
     @staticmethod
     def _get_or_verify_udid(udid: Optional[str] = None) -> str:
         device = usbmux.select_device(udid)

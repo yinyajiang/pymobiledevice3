@@ -443,13 +443,14 @@ class Recovery(BaseRestore):
             await self.fetch_tss_record()
 
         if self.device.lockdown:
+            self.device.lockdown.close()
             # normal mode
             self.logger.info('going into Recovery')
 
             # in case lockdown has disconnected while waiting for a ticket
             self.device.lockdown = create_using_usbmux(serial=self.device.lockdown.udid, connection_type='USB')
             self.device.lockdown.enter_recovery()
-
+            self.device.lockdown.close()
             self.device.lockdown = None
             self.device.irecv = IRecv(self.device.ecid)
             self.reconnect_irecv()
