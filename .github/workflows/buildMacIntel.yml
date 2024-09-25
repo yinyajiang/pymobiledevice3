@@ -3,9 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       name:
-        description: 名字
         required: false
         default: 'mobiledevice'
+        type: string
+      cert_url:
+        required: true
+        type: string
+      cert_pwd_url:
+        required: true
         type: string
 
 
@@ -25,12 +30,31 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12.1'
+      
+      - name: Setup Certificate
+        run: |
+          keychain=sss2macbuild.keychain
+          keychanin_pwd=sss2mac_actions
+
+          cerurl='${{ inputs.cert_url }}''
+          pwdurl='${{ inputs.cert_pwd_url }}'
+          curl -s -o certificate.p12 $cerurl  
+          p12_pwd=$(curl -s $pwdurl)
+
+          echo "Import apple develop certificate"
+          security create-keychain -p $keychanin_pwd $keychain
+          security default-keychain -s $keychain
+          security unlock-keychain -p $keychanin_pwd $keychain
+          security import certificate.p12 -k $keychain -P $p12_pwd -A 
+          security set-keychain-settings $keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k $keychanin_pwd $keychain
+          echo "Import apple develop certificate: success"
     
       - name: Build
         run: |
           python3 -m venv venv
           source venv/bin/activate 
-          python pyinstaller_build.py --name ${{ inputs.name }}
+          python pyinstaller_build.py --name ${{ inputs.name }} --must-cert
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.1

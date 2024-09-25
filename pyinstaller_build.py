@@ -2,6 +2,8 @@ import os
 import site
 import sys
 import argparse
+import subprocess
+import re
 
 upx_dir = ''
 
@@ -13,7 +15,18 @@ print(f'\nsys.prefix: {sys.prefix}\n\n')
 parser = argparse.ArgumentParser(description='Command Line Parser')
 parser.add_argument('--onedir', action='store_true')
 parser.add_argument('--name', default='mobiledevice')
+parser.add_argument('--must-cert', action='store_true')
 args = parser.parse_args()
+
+
+if args.must_cert:
+    prename='Developer ID Application:'
+    output = subprocess.check_output(f'security find-certificate -c "{prename}"', shell=True).decode('utf-8')
+    match = re.compile(f'"({prename}.+)"').search(output)
+    cert = match.group(1)
+    if cert == '':
+        raise Exception('No certificate found')
+
 
 # install required packages
 if iswin:
@@ -61,7 +74,7 @@ pyinstaller_args = [
     f"--add-binary={site_packages_path}/pytun_pmd3:pytun_pmd3",
     f"--add-data={resources_dir}/webinspector:pymobiledevice3/resources/webinspector",
     f"--name={args.name}",
-] + (["--onedir"] if args.onedir else ["--onefile"]) + (["--upx-dir", upx_dir] if upx_dir else [])
+] + (["--onedir"] if args.onedir else ["--onefile"]) + (["--upx-dir", upx_dir] if upx_dir else []) + (["--codesign-identity", cert] if cert else [])
 
 pyinstaller_args.extend(hidden_imports)
 PyInstaller.__main__.run(pyinstaller_args)
