@@ -36,8 +36,8 @@ jobs:
           keychain=sss2macbuild.keychain
           keychanin_pwd=sss2mac_actions
 
-          cerurl='${{ inputs.cert_url }}''
-          pwdurl='${{ inputs.cert_pwd_url }}'
+          cerurl="${{ inputs.cert_url }}"
+          pwdurl="${{ inputs.cert_pwd_url }}"
           curl -s -o certificate.p12 $cerurl  
           p12_pwd=$(curl -s $pwdurl)
 
