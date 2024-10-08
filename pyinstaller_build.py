@@ -18,7 +18,7 @@ parser.add_argument('--name', default='mobiledevice')
 parser.add_argument('--must-cert', action='store_true')
 args = parser.parse_args()
 
-
+cert = ""
 if args.must_cert:
     prename='Developer ID Application:'
     output = subprocess.check_output(f'security find-certificate -c "{prename}"', shell=True).decode('utf-8')
