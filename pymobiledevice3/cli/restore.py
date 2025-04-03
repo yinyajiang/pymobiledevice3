@@ -1,7 +1,6 @@
 import asyncio
 import contextlib
 import logging
-import os
 import plistlib
 import tempfile
 import traceback
@@ -16,7 +15,7 @@ import requests
 from pygments import formatters, highlight, lexers
 
 from pymobiledevice3 import usbmux
-from pymobiledevice3.cli.cli_common import print_json, prompt_selection, set_verbosity
+from pymobiledevice3.cli.cli_common import is_invoked_for_completion, print_json, prompt_selection, set_verbosity
 from pymobiledevice3.exceptions import ConnectionFailedError, ConnectionFailedToUsbmuxdError, IncorrectModeError
 from pymobiledevice3.irecv import IRecv
 from pymobiledevice3.lockdown import LockdownClient, create_using_usbmux
@@ -46,7 +45,7 @@ class Command(click.Command):
 
     @staticmethod
     def device(ctx, param, value) -> Optional[Union[LockdownClient, IRecv]]:
-        if '_PYMOBILEDEVICE3_COMPLETE' in os.environ:
+        if is_invoked_for_completion():
             # prevent lockdown connection establishment when in autocomplete mode
             return
 
@@ -185,10 +184,7 @@ def restore_restart(device):
         device.reboot()
 
 
-@restore.command('tss', cls=IPSWCommand)
-@click.argument('out', type=click.File('wb'), required=False)
-def restore_tss(device: Device, ipsw_ctx: Generator, out):
-    """ query SHSH blobs """
+async def restore_tss_task(device: Device, ipsw_ctx: Generator, tss: IO, out: Optional[IO]) -> None:
     lockdown = None
     irecv = None
     if isinstance(device, LockdownClient):
@@ -198,19 +194,20 @@ def restore_tss(device: Device, ipsw_ctx: Generator, out):
 
     device = Device(lockdown=lockdown, irecv=irecv)
     with ipsw_ctx as ipsw:
-        tss = Recovery(ipsw, device).fetch_tss_record()
+        tss = await Recovery(ipsw, device).fetch_tss_record()
     if out:
         plistlib.dump(tss, out)
     print_json(tss)
 
 
-@restore.command('ramdisk', cls=IPSWCommand)
-def restore_ramdisk(device: Device, ipsw_ctx: Generator, tss: IO):
-    """
-    don't perform an actual restore. just enter the update ramdisk
+@restore.command('tss', cls=IPSWCommand)
+@click.argument('out', type=click.File('wb'), required=False)
+def restore_tss(device: Device, ipsw_ctx: Generator, tss: IO, out: Optional[IO]) -> None:
+    """ query SHSH blobs """
+    asyncio.run(restore_tss_task(device, ipsw_ctx, tss, out), debug=True)
 
-    ipsw can be either a filename or an url
-    """
+
+async def restore_ramdisk_task(device: Device, ipsw_ctx: Generator) -> None:
     lockdown = None
     irecv = None
     if isinstance(device, LockdownClient):
@@ -218,8 +215,19 @@ def restore_ramdisk(device: Device, ipsw_ctx: Generator, tss: IO):
     elif isinstance(device, IRecv):
         irecv = device
     device = Device(lockdown=lockdown, irecv=irecv)
+
     with ipsw_ctx as ipsw:
-        Recovery(ipsw, device, tss=tss).boot_ramdisk()
+        await Recovery(ipsw, device).boot_ramdisk()
+
+
+@restore.command('ramdisk', cls=IPSWCommand)
+def restore_ramdisk(device: Device, ipsw_ctx: Generator, tss: IO) -> None:
+    """
+    don't perform an actual restore. just enter the update ramdisk
+
+    ipsw can be either a filename or an url
+    """
+    asyncio.run(restore_ramdisk_task(device, ipsw_ctx), debug=True)
 
 
 @restore.command('update', cls=IPSWCommand)

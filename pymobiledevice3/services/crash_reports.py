@@ -3,13 +3,15 @@ import posixpath
 import re
 import time
 from collections.abc import Generator
+from json import JSONDecodeError
 from typing import Callable, Optional
 
 from pycrashreport.crash_report import get_crash_report_from_buf
 from xonsh.built_ins import XSH
 from xonsh.cli_utils import Annotated, Arg
 
-from pymobiledevice3.exceptions import AfcException, NotificationTimeoutError, SysdiagnoseTimeoutError
+from pymobiledevice3.exceptions import AfcException, AfcFileNotFoundError, NotificationTimeoutError, \
+    SysdiagnoseTimeoutError
 from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.afc import AfcService, AfcShell, path_completer
@@ -79,13 +81,15 @@ class CrashReportsManager:
         """
         return list(self.afc.dirlist(path, depth))[1:]  # skip the root path '/'
 
-    def pull(self, out: str, entry: str = '/', erase: bool = False, match: Optional[str] = None) -> None:
+    def pull(self, out: str, entry: str = '/', erase: bool = False, match: Optional[str] = None,
+             progress_bar: bool = True) -> None:
         """
         Pull crash reports from the device.
         :param out: Directory to pull crash reports to.
         :param entry: File or Folder to pull.
         :param erase: Whether to erase the original file from the CrashReports directory.
         :param match: Regex to match against file and directory names to pull.
+        :param progress_bar: Whether to show a progress bar when pulling large files.
         """
 
         def log(src: str, dst: str) -> None:
@@ -95,7 +99,7 @@ class CrashReportsManager:
                     self.afc.rm_single(src, force=True)
 
         match = None if match is None else re.compile(match)
-        self.afc.pull(entry, out, match, callback=log)
+        self.afc.pull(entry, out, match, callback=log, progress_bar=progress_bar)
 
     def flush(self) -> None:
         """ Trigger com.apple.crashreportmover to flush all products into CrashReports directory """
@@ -122,8 +126,14 @@ class CrashReportsManager:
             if posixpath.splitext(filename)[-1] not in ('.ips', '.panic'):
                 continue
 
-            crash_report_raw = self.afc.get_file_contents(filename).decode()
-            crash_report = get_crash_report_from_buf(crash_report_raw, filename=filename)
+            while True:
+                try:
+                    crash_report_raw = self.afc.get_file_contents(filename).decode()
+                    crash_report = get_crash_report_from_buf(crash_report_raw, filename=filename)
+                    break
+                except (AfcFileNotFoundError, JSONDecodeError):
+                    # Sometimes we have to wait for the file to be readable
+                    pass
 
             if name is None or crash_report.name == name:
                 if raw:

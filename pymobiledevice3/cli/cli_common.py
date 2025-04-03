@@ -20,7 +20,7 @@ from pymobiledevice3.exceptions import AccessDeniedError, DeviceNotFoundError, N
 from pymobiledevice3.lockdown import LockdownClient, create_using_usbmux
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
-from pymobiledevice3.tunneld import TUNNELD_DEFAULT_ADDRESS, async_get_tunneld_devices
+from pymobiledevice3.tunneld.api import TUNNELD_DEFAULT_ADDRESS, async_get_tunneld_devices
 from pymobiledevice3.usbmux import select_devices_by_connection_type
 
 COLORED_OUTPUT = True
@@ -107,8 +107,12 @@ def set_color_flag(ctx, param, value) -> None:
     COLORED_OUTPUT = value
 
 
+def isatty() -> bool:
+    return os.isatty(sys.stdout.fileno())
+
+
 def user_requested_colored_output() -> bool:
-    return COLORED_OUTPUT and os.isatty(sys.stdout.fileno())
+    return COLORED_OUTPUT and isatty()
 
 
 def get_last_used_terminal_formatting(buf: str) -> str:
@@ -156,6 +160,14 @@ def choose_service_provider(callback: Callable):
     return wrap_callback_calling
 
 
+def is_invoked_for_completion() -> bool:
+    """ Returns True if the command is ivoked for autocompletion. """
+    for env in os.environ.keys():
+        if env.startswith('_') and env.endswith('_COMPLETE'):
+            return True
+    return False
+
+
 class BaseCommand(click.Command):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -169,9 +181,6 @@ class BaseCommand(click.Command):
 class BaseServiceProviderCommand(BaseCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.params[:0] = [
-            click.Option(('verbosity', '-v', '--verbose'), count=True, callback=set_verbosity, expose_value=False),
-        ]
         self.service_provider = None
         self.callback = choose_service_provider(self.callback)
 
@@ -194,7 +203,7 @@ class LockdownCommand(BaseServiceProviderCommand):
         self.usbmux_address = value
 
     def udid(self, ctx, param: str, value: str) -> Optional[LockdownClient]:
-        if '_PYMOBILEDEVICE3_COMPLETE' in os.environ:
+        if is_invoked_for_completion():
             # prevent lockdown connection establishment when in autocomplete mode
             return
 
@@ -280,7 +289,7 @@ class Command(RSDCommand, LockdownCommand):
 class CommandWithoutAutopair(Command):
     @staticmethod
     def udid(ctx, param, value):
-        if '_PYMOBILEDEVICE3_COMPLETE' in os.environ:
+        if is_invoked_for_completion():
             # prevent lockdown connection establishment when in autocomplete mode
             return
         return create_using_usbmux(serial=value, autopair=False)

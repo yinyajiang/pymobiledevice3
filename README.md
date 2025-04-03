@@ -12,6 +12,7 @@
   - [Installation](#installation)
     - [OpenSSL libraries](#openssl-libraries)
     - [libusb dependency](#libusb-dependency)
+    - [Autocompletions](#autocompletions)
   - [Usage](#usage)
     - [Working with developer tools (iOS \>= 17.0)](#working-with-developer-tools-ios--170)
     - [Commonly used actions](#commonly-used-actions)
@@ -70,14 +71,22 @@ cd pymobiledevice3
 python3 -m pip install -U -e .
 ```
 
-You can also install auto-completion for all available sub-commands by adding the following into your `~/.zshrc`:
+If you're not a macOS user:
 
-```shell
-# python-click<8.0
-eval "$(_PYMOBILEDEVICE3_COMPLETE=source_zsh pymobiledevice3)"
-# python-click>=8.0
-eval "$(_PYMOBILEDEVICE3_COMPLETE=zsh_source pymobiledevice3)"
-```
+- If you're using a Windows workstation, you'll need to install and run
+  execute [iTunes](https://apps.microsoft.com/detail/9pb2mz1zmb1s?hl=en-US&gl=US).
+  - If you're using WSL2, you will need to
+    [enable mirrored networking mode](https://learn.microsoft.com/en-us/windows/wsl/networking#mirrored-mode-networking)
+    (Requires Windows 11 22H2 or higher).
+    This can be achieved creating a file named `.wslconfig` in your home directory with the following contents:
+
+      ```none
+      [wsl2]
+      networkingMode=mirrored
+      ```
+
+- If you're using a Linux workstation, install [`usbmuxd`](https://github.com/libimobiledevice/usbmuxd) (Available on
+  Ubuntu via `apt`)
 
 ### OpenSSL libraries
 
@@ -129,6 +138,21 @@ On windows:
 Following libusb website to download latest release binaries:
 
 <https://libusb.info/>
+
+### Autocompletions
+
+You can also install auto-completion for all available sub-commands by running the following command:
+
+```shell
+# Install bash completions
+pymobiledevice3 install-completions
+```
+
+Supported shells include:
+
+- Fish
+- Bash
+- Zsh
 
 ## Usage
 
@@ -388,6 +412,8 @@ See [CONTRIBUTING](https://github.com/doronz88/pymobiledevice3/blob/master/CONTR
 
 Please see [misc](https://github.com/doronz88/pymobiledevice3/blob/master/misc)
 
+Library uses WindowsSelectorEventLoopPolicy for asyncio on Windows platform. Please see discussion [misc](https://github.com/doronz88/pymobiledevice3/issues/1217)
+
 ## Copyright notice
 
 This work is licensed under GPL 3.0, and as, credited to several major contributors:
@@ -398,3 +424,4 @@ This work is licensed under GPL 3.0, and as, credited to several major contribut
 - [matan1008](https://github.com/matan1008) <matan1008@gmail.com>
 - [Guy Salton](https://github.com/guysalt)
 - [netanelc305](https://github.com/netanelc305) <netanelc305@protonmail.com>
+- Inbar Agmon <inbar2812@gmail.com> ([Project's logo](https://repository-images.githubusercontent.com/357904774/6d6fb035-5953-425d-9afd-cc1087df0cfb))

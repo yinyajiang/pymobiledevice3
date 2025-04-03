@@ -2,7 +2,7 @@ import base64
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, browse_remoted
 from pymobiledevice3.common import get_home_folder
@@ -57,17 +57,21 @@ class RemoteServiceDiscoveryService(LockdownServiceProvider):
 
     async def connect(self) -> None:
         await self.service.connect()
-        self.peer_info = await self.service.receive_response()
-        self.udid = self.peer_info['Properties']['UniqueDeviceID']
-        self.product_type = self.peer_info['Properties']['ProductType']
         try:
-            self.lockdown = create_using_remote(self.start_lockdown_service('com.apple.mobile.lockdown.remote.trusted'))
-        except InvalidServiceError:
-            self.lockdown = create_using_remote(
-                self.start_lockdown_service('com.apple.mobile.lockdown.remote.untrusted'))
-        self.all_values = self.lockdown.all_values
+            self.peer_info = await self.service.receive_response()
+            self.udid = self.peer_info['Properties']['UniqueDeviceID']
+            self.product_type = self.peer_info['Properties']['ProductType']
+            try:
+                self.lockdown = create_using_remote(self.start_lockdown_service('com.apple.mobile.lockdown.remote.trusted'))
+            except InvalidServiceError:
+                self.lockdown = create_using_remote(
+                    self.start_lockdown_service('com.apple.mobile.lockdown.remote.untrusted'))
+            self.all_values = self.lockdown.all_values
+        except Exception:  # noqa: E722
+            await self.close()
+            raise
 
-    def get_value(self, domain: str = None, key: str = None):
+    def get_value(self, domain: Optional[str] = None, key: Optional[str] = None) -> Any:
         return self.lockdown.get_value(domain, key)
 
     def start_lockdown_service_without_checkin(self, name: str) -> ServiceConnection:
@@ -75,16 +79,20 @@ class RemoteServiceDiscoveryService(LockdownServiceProvider):
 
     def start_lockdown_service(self, name: str, include_escrow_bag: bool = False) -> ServiceConnection:
         service = self.start_lockdown_service_without_checkin(name)
-        checkin = {'Label': 'pymobiledevice3', 'ProtocolVersion': '2', 'Request': 'RSDCheckin'}
-        if include_escrow_bag:
-            pairing_record = get_local_pairing_record(get_remote_pairing_record_filename(self.udid), get_home_folder())
-            checkin['EscrowBag'] = base64.b64decode(pairing_record['remote_unlock_host_key'])
-        response = service.send_recv_plist(checkin)
-        if response['Request'] != 'RSDCheckin':
-            raise PyMobileDevice3Exception(f'Invalid response for RSDCheckIn: {response}. Expected "RSDCheckIn"')
-        response = service.recv_plist()
-        if response['Request'] != 'StartService':
-            raise PyMobileDevice3Exception(f'Invalid response for RSDCheckIn: {response}. Expected "ServiceService"')
+        try:
+            checkin = {'Label': 'pymobiledevice3', 'ProtocolVersion': '2', 'Request': 'RSDCheckin'}
+            if include_escrow_bag:
+                pairing_record = get_local_pairing_record(get_remote_pairing_record_filename(self.udid), get_home_folder())
+                checkin['EscrowBag'] = base64.b64decode(pairing_record['remote_unlock_host_key'])
+            response = service.send_recv_plist(checkin)
+            if response['Request'] != 'RSDCheckin':
+                raise PyMobileDevice3Exception(f'Invalid response for RSDCheckIn: {response}. Expected "RSDCheckIn"')
+            response = service.recv_plist()
+            if response['Request'] != 'StartService':
+                raise PyMobileDevice3Exception(f'Invalid response for RSDCheckIn: {response}. Expected "ServiceService"')
+        except Exception:  # noqa: E722
+            service.close()
+            raise
         return service
 
     async def aio_start_lockdown_service(

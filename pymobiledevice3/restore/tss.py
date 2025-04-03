@@ -7,14 +7,14 @@ from uuid import uuid4
 
 import asn1
 import requests
-from ipsw_parser.img4 import COMPONENT_FOURCC
 
 from pymobiledevice3.exceptions import PyMobileDevice3Exception
+from pymobiledevice3.restore.img4 import COMPONENT_FOURCC
 from pymobiledevice3.utils import bytes_to_uint, plist_access_path
 
 TSS_CONTROLLER_ACTION_URL = 'http://gs.apple.com/TSS/controller?action=2'
 
-TSS_CLIENT_VERSION_STRING = 'libauthinstall-1033.0.2'
+TSS_CLIENT_VERSION_STRING = 'libauthinstall-1033.80.3'
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +244,7 @@ class TSSRequest:
 
     def add_vinyl_tags(self, parameters: dict, overrides=None):
         self._request['@BBTicket'] = True
+        self._request['@eUICC,Ticket'] = True
 
         self._request['eUICC,ApProductionMode'] = parameters.get('eUICC,ApProductionMode',
                                                                  parameters.get('ApProductionMode'))
@@ -286,7 +287,7 @@ class TSSRequest:
         manifest_node = parameters['Manifest']
 
         # add components to request
-        skipped_keys = ('BasebandFirmware', 'SE,UpdatePayload', 'BaseSystem', 'Diags',)
+        skipped_keys = ('BasebandFirmware', 'SE,UpdatePayload', 'BaseSystem', 'Diags', 'Ap,ExclaveOS')
         for key, manifest_entry in manifest_node.items():
             if key in skipped_keys:
                 continue
@@ -348,7 +349,8 @@ class TSSRequest:
         keys_to_copy = (
             'ApNonce', 'ApProductionMode', 'ApSecurityMode', 'Ap,OSLongVersion', 'ApSecurityMode', 'ApSepNonce',
             'Ap,SDKPlatform', 'PearlCertificationRootPub', 'NeRDEpoch', 'ApSikaFuse', 'Ap,SikaFuse', 'Ap,OSReleaseType',
-            'Ap,ProductType', 'Ap,Target', 'Ap,TargetType'
+            'Ap,ProductType', 'Ap,Target', 'Ap,TargetType', 'AllowNeRDBoot', 'Ap,ProductMarketingVersion',
+            'Ap,Timestamp',
         )
         for k in keys_to_copy:
             if k in parameters:
@@ -360,6 +362,9 @@ class TSSRequest:
                 self._request[k] = v
 
         uid_mode = parameters.get('UID_MODE', False)
+
+        if 'NeRDEpoch' in parameters:
+            self._request['PermitNeRDPivot'] = b''
 
         self._request['UID_MODE'] = uid_mode
         self._request['@ApImg4Ticket'] = True
